@@ -2,14 +2,17 @@
 
 
 const axios = require("axios"); //usefull to access the binance api
-
-const SYMBOL = "BTCUSDT";
+const crypto = require("crypto");
 
 //Define o período de 14 velas para o cálculo do rsi.
 const PERIOD = 14;
+const SYMBOL = "BTCUSDT";
+const QUANTITY = "0.001";
+
 
 const API_URL = "https://testnet.binance.vision"; //https://api.binance.com
-
+const API_KEY = "0wahd32uycf0GjSn8Y9eVU5PIz2ka5RpRSDhaScFffB59tfzk3XNHIEHYCmhKhX5";
+const SECRET_KEY = "SEvKr81fhi9iT3eHfp8m3fGGsXhz2RPUYJNtLBkmcN9342fdX9tCeQIV9lEpKY2K";
 
 //calcula a média de ganhos e perdas no período definido na função
 function averages(prices, period, startIndex){
@@ -51,6 +54,36 @@ function RSI(prices, period){
 
 }
 
+async function newOrder(symbol, quantity, side){
+    const order = { symbol, quantity, side };
+    order.type = "MARKET";
+    order.timestamp = Date.now();
+
+    const signature = crypto
+        .createHmac("sha256", SECRET_KEY)
+        .update(new URLSearchParams(order).toString())
+        .digest("hex");
+
+    order.signature = signature;
+
+    try {
+        const {data} = await axios.post(
+            API_URL + "/api/v3/order",
+            new URLSearchParams(order).toString(),
+            {
+                headers: { "X-MBX-APIKEY": API_KEY}
+            }
+        )
+
+        console.log(data);
+    }
+    catch(err){
+        console.error(err.response.data);
+    }
+
+}
+
+
 //flag p/ confirmar se comprei ou ñ a ordem.
 let isOpened = false;
 
@@ -78,9 +111,11 @@ async function start() {
     if(rsi < 30 && isOpened === false){
         console.log("Comprar, sobrevendido.");
         isOpened = true;
+        newOrder(SYMBOL, QUANTITY, "BUY");
     }
     else if(rsi > 70 && isOpened === true){
         console.log("Vender, sobrecomprado.");
+        newOrder(SYMBOL, QUANTITY, "SELL");
         isOpened = false;
     }
     else 
